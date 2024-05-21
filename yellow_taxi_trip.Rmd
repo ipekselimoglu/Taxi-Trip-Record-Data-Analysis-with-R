@@ -1,0 +1,693 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+---
+```{r} 
+library(dplyr) 
+library(ggplot2) 
+library(stringr)
+library(tidyverse)
+library(lubridate)
+library(chron)
+library(ggfortify)
+``` 
+
+```{r} 
+glimpse(yellow_tripdata_2020_01) 
+``` 
+
+```{r} 
+sum(is.na(yellow_tripdata_2020_01)) 
+``` 
+
+```{r} 
+  yellow_tripdata_2020_01 <- na.omit(yellow_tripdata_2020_01) 
+``` 
+
+```{r}
+sum(is.na(yellow_tripdata_2020_01)) 
+```
+
+```{r} 
+yellow_tripdata_2020_01 <- distinct(yellow_tripdata_2020_01) 
+``` 
+
+
+
+```{r} 
+
+tarih_saat_ayırma <- yellow_tripdata_2020_01$tpep_pickup_datetime[1] 
+tarih_saat_ayırma <- str_split(tarih_saat_ayırma,"[ ]")[[1]][2] 
+str(tarih_saat_ayırma)
+
+``` 
+
+```{r} 
+yellow_tripdata_2020_01 
+``` 
+
+
+```{r} 
+
+difftime(yellow_tripdata_2020_01$tpep_dropoff_datetime[1],yellow_tripdata_2020_01$tpep_pickup_datetime[1],units="mins") 
+
+``` 
+
+
+```{r} 
+
+yellow_tripdata_2020_01 <- yellow_tripdata_2020_01 %>% 
+                            mutate(trip_time = difftime(tpep_dropoff_datetime,tpep_pickup_datetime,units="mins")) 
+yellow_tripdata_2020_01 
+
+``` 
+
+
+
+```{r} 
+
+yellow_tripdata_2020_01%>% 
+      summarise(mean_trip_time= mean(trip_time)) 
+
+``` 
+
+
+
+```{r} 
+
+sum(!duplicated(yellow_tripdata_2020_01$PULocationID)) 
+
+``` 
+
+  
+```{r} 
+
+sum(!duplicated(yellow_tripdata_2020_01$DOLocationID)) 
+
+``` 
+
+```{r} 
+yellow_tripdata_2020_01$payment_type[1:10] 
+``` 
+
+
+
+```{r}
+sample_yellow_tripdata_2020_01 <- yellow_tripdata_2020_01 %>%
+                                  sample_n(10000)
+
+sample_yellow_tripdata_2020_01
+```
+
+
+
+
+```{r}
+sample_yellow_tripdata_2020_01 <-  sample_yellow_tripdata_2020_01%>%
+                                     mutate(VendorID = as.factor(VendorID), 
+                                     store_and_fwd_flag = as.factor(store_and_fwd_flag), 
+                                     PULocationID =as.factor(PULocationID), 
+                                     DOLocationID =as.factor(DOLocationID) ,
+                                     payment_type = as.factor(payment_type)  ) %>%
+                                     mutate(trip_time= round(as.numeric(trip_time),1))%>%
+                                     filter(trip_time<500,trip_time>5,trip_distance>0,passenger_count>0,fare_amount>0)
+                                     
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01
+```
+
+
+```{r} 
+
+sample_yellow_tripdata_2020_01%>% 
+      summarise(mean_trip_time= mean(trip_time)) 
+
+``` 
+
+
+```{r}
+levels(sample_yellow_tripdata_2020_01$payment_type)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  ggplot(aes(x=trip_time, y= tip_amount,color=payment_type))+
+  xlim(c(0,140))+
+  ylim(c(0,43))+
+  geom_point(alpha= 0.6)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01
+```
+
+```{r}
+names(sample_yellow_tripdata_2020_01) 
+  
+```
+
+```{r}
+summary(sample_yellow_tripdata_2020_01)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  filter(fare_amount<0)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01 <-  sample_yellow_tripdata_2020_01%>%
+                                   mutate(avg_speed = round(trip_distance*60/trip_time))%>%
+                                   mutate(fare_per_mins=round(fare_amount/trip_time,2))%>%
+                                   mutate(fare_per_mils=round(fare_amount/trip_distance,2))
+
+sample_yellow_tripdata_2020_01
+```
+
+```{r}
+summary(sample_yellow_tripdata_2020_01)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  summarise(sd_fare_per_mils= sd(fare_per_mils),sd_fare_per_mins= sd(fare_per_mins),sd_avg_speed= sd(avg_speed))
+```
+
+```{r}
+sample_yellow_tripdata_2020_01
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                     count(PULocationID,sort = TRUE)%>%
+                     top_n(5)
+```
+
+
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                     count(DOLocationID,sort = TRUE)%>%
+                     top_n(5)
+
+```
+
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                     group_by(PULocationID,DOLocationID)%>%
+                     count(PULocationID,sort = TRUE)
+
+```
+
+
+```{r}
+    sample_yellow_tripdata_2020_01%>%
+                             select(PULocationID,DOLocationID,tolls_amount)%>%
+                             group_by(PULocationID)%>%
+                             arrange(desc(tolls_amount))
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01 %>%
+  filter(payment_type!=2)%>%
+  mutate(toplam= tolls_amount+mta_tax+extra+fare_amount+improvement_surcharge+tip_amount+congestion_surcharge)%>%
+  select(total_amount,toplam,congestion_surcharge,improvement_surcharge)%>%
+  mutate(fark= round(total_amount-toplam,2))
+```
+
+
+```{r}
+names(sample_yellow_tripdata_2020_01)
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+       group_by(payment_type)%>%
+       summarize(cnt=sum(tip_amount>0),cnt_t=sum(tip_amount==0))
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                          group_by(VendorID,passenger_count)%>%
+                          count(passenger_count,sort = TRUE)
+
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                          group_by(VendorID, payment_type)%>%
+                          count(payment_type,sort = TRUE)%>%
+                          arrange(VendorID,payment_type)
+
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                          group_by(extra)%>%
+                          count(extra,sort = TRUE)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  mutate(payment_type=ifelse(payment_type==1,"Credit Card","Other"))%>%
+  group_by(payment_type)%>%
+  summarize(yuzdeler = round(n()*100/nrow(sample_yellow_tripdata_2020_01),2))%>%
+  ggplot(aes(x= " ",y = yuzdeler, fill = payment_type)) + 
+  geom_bar(stat="identity",width = 1) +
+  geom_text(aes(label = paste0(yuzdeler, "%")), position = position_stack(vjust=0.5)) +
+  theme_bw()+
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="Payment Type", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of Payment Type")+
+       coord_polar(theta = "y", start=0)
+
+ggsave("PieChartofPaymentType.png", type = "cairo-png") 
+
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                          group_by(tpep_pickup_datetime)%>%
+                          count(tpep_pickup_datetime,sort = TRUE)
+                          
+
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+                      mutate(date=lapply(tpep_pickup_datetime,function(x) str_split(x,"[( ]")[[1]][1])%>% 
+                      unlist())%>%
+                      group_by(date)%>%
+                      count(date,sort = TRUE)
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+                      mutate(date=lapply(tpep_pickup_datetime,function(x) str_split(x,"[( ]")[[1]][1])%>% 
+                      unlist())%>%
+                      group_by(date)%>%
+                      count(date,sort = TRUE)%>%
+  
+                      ggplot(aes(date,n))+
+                      geom_line(aes(group=1))+
+                      scale_y_continuous(breaks = seq(0,350,20))+
+                      theme(axis.text.x = element_text(angle=90, vjust=0.6))+
+                      labs(title = "Count of Used Taxi Per Day", y="taxi count")
+
+```
+
+
+```{r}
+weekdays1 <- c('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday')
+hours <- c("00:00", "6:00", "12:00", "18:00", "23:59")
+
+sample_yellow_tripdata_2020_01<-     sample_yellow_tripdata_2020_01%>%                                           
+                                     mutate(weekday= factor(weekdays(tpep_pickup_datetime),levels=c(weekdays1,"Saturday","Sunday")))%>%
+                                     mutate(weekday_or_weekend = factor((weekdays(tpep_pickup_datetime) %in% weekdays1),levels=c(FALSE, TRUE), labels=c('weekend', 'weekday')))%>%
+                                     mutate(clock = factor(am(tpep_pickup_datetime),levels = c(TRUE,FALSE),labels = c("am","pm")))%>% 
+                                     mutate(time_interval =cut(x=hour(tpep_pickup_datetime), breaks =  hour(hm("00:00", "6:00", "12:00", "18:00", "23:59")),
+                                                           labels = c("Morning","Night", "Afternoon", "Evening"),
+                                                           include.lowest=TRUE) )%>%
+                                     mutate(day_no=days(tpep_pickup_datetime),time_interval=factor(time_interval,levels = c("Morning","Afternoon", "Evening","Night")))
+
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01
+```
+
+```{r}
+ sample_yellow_tripdata_2020_01%>%
+                          group_by(weekday,time_interval)%>%
+                          count(weekday,sort = TRUE)
+
+
+```
+
+```{r}
+summary(sample_yellow_tripdata_2020_01)
+```
+
+
+```{r}
+days(sample_yellow_tripdata_2020_01$tpep_pickup_datetime[1])
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+mutate(day=days(tpep_pickup_datetime))%>%
+group_by(VendorID,day)%>%
+summarize(Ort= mean(total_amount))%>%
+ggplot(aes(x=day)) + 
+  geom_line(aes(y=Ort ,group= VendorID,color=VendorID),alpha=0.7) + 
+  geom_hline(aes(yintercept = mean(sample_yellow_tripdata_2020_01$total_amount),linetype = "Mean"),colour= 'green',size=0.5)+
+  scale_y_continuous(breaks = seq(0,30,1))+
+  labs(title="Average Total Amount Per Day ", y="average total amount", linetype="  ")
+
+ 
+```
+
+
+
+```{r}
+x <-as.Date("2020-01-31 23:57:42")- as.Date("2020-01-01 00:00:38")
+
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(tpep_pickup_datetime)) + 
+    scale_fill_brewer(palette = "Spectral")+
+    geom_histogram(aes(fill=time_interval), bins=x, col="black", size=.1)+
+    scale_y_continuous(breaks=seq(0,400,50))+
+    labs(title="Time Interval Counts Per Date ", 
+         x="Dates",fill=" Time Interval")
+
+
+```
+
+```{r}
+x <-as.Date("2020-01-31 23:57:42")- as.Date("2020-01-01 00:00:38")
+
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(tpep_pickup_datetime)) + 
+    scale_fill_brewer(palette = "Spectral")+
+    geom_histogram(aes(fill=payment_type), bins=x, col="black", size=.1)+
+    scale_y_continuous(breaks=seq(0,400,50))+
+    labs(title="Payment Type Counts Per Date ", 
+       x="Dates",fill="Payment Type")
+```
+
+
+```{r}
+x <-as.Date("2020-01-31 23:57:42")- as.Date("2020-01-01 00:00:38")
+
+sample_yellow_tripdata_2020_01%>%
+    mutate(payment_type=factor(ifelse(payment_type==1,"Credit Card",
+                               ifelse(payment_type==2,"Cash",
+                                      ifelse(payment_type==3,"No Charge","Dispute"))),levels = c("Credit Card", "Cash","No Charge","Dispute")))%>%
+    ggplot( aes(tpep_pickup_datetime)) + 
+    scale_fill_brewer(palette = "Spectral")+
+    geom_histogram(aes(fill=payment_type), bins=x, col="black", size=.1)+
+    scale_y_continuous(breaks=seq(0,400,50))+
+    labs(title="Payment Type Counts Per Date ", 
+       x="Dates",fill="Payment Type")
+
+
+```
+
+```{r}
+x <-as.Date("2020-01-31 23:57:42")- as.Date("2020-01-01 00:00:38")
+
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(tpep_pickup_datetime)) + 
+    scale_fill_brewer(palette = "Spectral")+
+    geom_histogram(aes(fill=as.factor(passenger_count)), bins=x, col="black", size=.1)+
+     scale_y_continuous(breaks=seq(0,400,50))+
+    labs(title="Passenger Count Per Date ", fill="Passenger Count", x="Dates")
+
+```
+
+```{r}
+x <-as.Date("2020-01-31 23:57:42")- as.Date("2020-01-01 00:00:38")
+
+sample_yellow_tripdata_2020_01%>%
+    group_by(day_no,VendorID)%>%
+    summarise(avg_passenger_count =mean(passenger_count))%>%
+    ggplot( aes(day_no,avg_passenger_count)) + 
+    geom_line(aes(fill=VendorID ,group=VendorID,color=VendorID))+
+    geom_hline(aes(yintercept = mean(sample_yellow_tripdata_2020_01$passenger_count),linetype = " Total Mean"),colour= 'Purple',size=0.5)+
+    scale_y_continuous(breaks=seq(0,2,0.1))+
+    labs(title=" Average Passenger Count Per Date ", fill="Passenger Count", x="Dates",y="average passenger count",linetype=" ")
+
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(weekday)) + 
+    geom_bar(aes(fill=time_interval), width = 0.5, position="dodge") + 
+    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+    labs(title="Time Interval Counts Per Day ", fill="Time Interval", x="Days")
+     
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(weekday)) + 
+    geom_bar(aes(fill=time_interval), width = 0.5,position = "fill") + 
+    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+    labs(title="Time Interval Rate Per Day  ", fill="Time Interval", x="Days",y="Count Percentage")
+
+```
+
+
+
+```{r}
+
+sample_yellow_tripdata_2020_01%>%
+group_by(time_interval)%>%
+  summarize(yuzdeler = round(n()*100/nrow(sample_yellow_tripdata_2020_01),2))%>%
+  ggplot(aes(x= " ",y = yuzdeler, fill = time_interval)) + 
+  geom_bar(stat="identity",width = 1) +
+  geom_text(aes(label = paste0(yuzdeler, "%")), position = position_stack(vjust=0.5)) +
+  theme_bw()+
+  theme(axis.line = element_blank(), 
+        plot.title = element_text(hjust=0.5)) + 
+  labs(fill="Time Interval", 
+       x=NULL, 
+       y=NULL, 
+       title="Pie Chart of Time Interval")+
+       coord_polar(theta = "y", start=0)
+
+
+```
+
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+    group_by(weekday,clock)%>%
+    summarize(cnt=n())%>%
+    ungroup()
+```
+
+```{r}
+    sample_yellow_tripdata_2020_01%>%
+    group_by(weekday)%>%
+    summarize(cnt=n())%>%
+    ungroup()
+```
+
+
+```{r}
+merge.data.frame(
+  
+sample_yellow_tripdata_2020_01%>%
+    group_by(weekday,clock)%>%
+    summarize(cnt=n())%>%
+    ungroup(),
+
+    sample_yellow_tripdata_2020_01%>%
+    group_by(weekday)%>%
+    summarize(cnt=n())%>%
+    ungroup(),by="weekday")%>%
+    mutate(per= round(100*cnt.x/cnt.y))%>%
+
+    ggplot( aes(weekday)) + 
+    geom_bar(aes(y=per,fill=clock ),stat="identity", width = 0.5,position="dodge") + 
+    geom_text(aes(y=per + 5, x=weekday,label=paste0(per," %"),angle=90), position = position_dodge(0.9),
+    vjust = 0)+
+    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+    scale_y_continuous(breaks=seq(0,100,10))+
+    labs(title="Percentage of Clock Per Day ", fill="Clock", x="Days",y="Percentage")
+
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+    ggplot( aes(weekday)) + 
+    geom_bar(aes(fill=clock), width = 0.5,position="fill") + 
+    theme(axis.text.x = element_text(angle=65, vjust=0.6))+
+    labs(title="Count of Clock Rate Per Day  ", fill="Clock", x="Days",y="Count Rate")
+    
+
+```
+
+```{r}
+names(sample_yellow_tripdata_2020_01)
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  ggplot( aes(tpep_pickup_datetime))+
+  geom_density(aes(fill=clock), alpha=0.5) + 
+    labs(title="Density plot", 
+         subtitle="Clock density - January",
+         x="Dates",
+         fill="Clock")
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  ggplot( aes(tpep_pickup_datetime))+
+  geom_density(aes(fill=time_interval), alpha=0.8) + 
+    labs(title="Density plot", 
+         subtitle="Time interval density - January",
+         x="Dates",
+         fill="Time Interval")
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  select(weekday_or_weekend,total_amount)%>%
+ ggplot(aes(x=weekday_or_weekend,y=total_amount))+
+ geom_boxplot( fill="pink") +
+ labs(title="Total Amount Boxplot",
+      x= "Weekend / Weekday",
+      y=" Total Amount($)"
+      )
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  group_by(VendorID,day_no)%>%
+  summarise(ort_time=mean(trip_time))%>%
+  ggplot(aes(x=day_no))+
+  geom_line(aes(group=VendorID,y=ort_time,color=VendorID))+
+  geom_hline(aes(yintercept = mean(sample_yellow_tripdata_2020_01$trip_time),linetype = "Mean"),colour= 'Purple',size=0.5)+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+  labs(title="Average Trip Time Per Date",
+         x="Dates" ,
+         y="Trip Time(mins)",linetype=" ")
+
+ 
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  group_by(VendorID,time_interval)%>%
+  summarise(avg =mean(avg_speed))%>%
+  ggplot(aes(time_interval, y=avg))+
+  geom_bar(stat = "identity",aes(fill=VendorID),position = "dodge")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Speed for Interval Time",
+         x="Time Interval" ,
+         y="Average Speed(mils/hours)")
+
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  group_by(VendorID,time_interval)%>%
+  summarise(avg_tip =mean(tip_amount))%>%
+  ggplot(aes(time_interval, y=avg_tip))+
+  geom_bar(stat = "identity",aes(fill=VendorID),position = "dodge")+
+  scale_y_continuous(breaks=seq(0,3,0.2))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Tip For Time Interval",
+         x="Time Interval" ,
+         y="Average Tip($)")
+ 
+```
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  group_by(passenger_count,VendorID)%>%
+  summarise(avg_tip =mean(tip_amount))%>%
+  ggplot(aes(x=as.factor(passenger_count)))+
+  geom_line(aes(color=VendorID,group=VendorID,y=avg_tip))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Tip For Passenger Count",
+         x="Passenger Count" ,
+         y="Average Tip($)")
+
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  filter(VendorID==2)%>%
+  group_by(passenger_count)%>%
+  summarise(cnt=n())
+```
+
+
+```{r}
+sample_yellow_tripdata_2020_01%>%
+  group_by(time_interval,VendorID)%>%
+  summarise(avg_trip =mean(trip_time))%>%
+  ggplot(aes(x=as.factor(time_interval),y=avg_trip))+
+  geom_bar(stat = "identity", aes(fill=VendorID,group=VendorID),position = "dodge")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Trip Time For Time Interval",
+         x="time interval" ,
+         y="Average Trip Time(mins)")
+
+```
+
+```{r}
+
+
+p1 <-sample_yellow_tripdata_2020_01%>%
+group_by(time_interval,VendorID)%>%
+  summarise(avg_trip_dist =mean(trip_distance))%>%
+  ungroup()%>%
+  ggplot(aes(x=as.factor(time_interval),y=avg_trip_dist))+
+  geom_bar(stat = "identity", aes(fill=VendorID,group=VendorID),position = "dodge")+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Trip Distance For Time Interval",
+         x="time interval" ,
+         y="Trip Distance(mils)")
+
+
+p2<-sample_yellow_tripdata_2020_01%>%
+  group_by(passenger_count,VendorID)%>%
+  summarise(avg_trip_time =mean(trip_time))%>%
+  ggplot(aes(x=as.factor(passenger_count)))+
+  geom_line(aes(group=VendorID,color=VendorID, y=avg_trip_time))+
+  theme(plot.title = element_text(hjust = 0.5))+
+  theme(axis.text.x=element_text(angle=45,vjust=1,hjust=1))+
+   labs(title="Average Trip Time For Passenger Count ",
+         x="Passenger count" ,
+         y="Trip Time(mins)")
+
+
+```
+
+```{r}
+cairo_pdf(filename = "deneme.pdf",onefile = T)
+p1
+p2
+dev.off()
+```
+
+
+
+
+
+
+
